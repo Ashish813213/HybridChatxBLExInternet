@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --success: #B5E18B;
+  --success-light: #F0FFC2;
+  --accent: #FF9A86;
+  --accent-light: #FFB399;
+  --bg: #FFD6A6;
+  --bg-light: #FFF0BE;
+  --bg-dark: #EAE6BC;
+  --dark: #28396C;
+}
+
+body {
+  background: linear-gradient(135deg, var(--bg) 0%, var(--bg-light) 50%, var(--bg-dark) 100%);
+  color: var(--dark);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glass-card {
+  @apply glass rounded-xl p-4 shadow-lg;
+}
+
+.btn-primary {
+  @apply bg-success hover:bg-success/80 text-dark font-semibold px-4 py-2 rounded-lg transition-all;
+}
+
+.btn-accent {
+  @apply bg-accent hover:bg-accent/80 text-dark font-semibold px-4 py-2 rounded-lg transition-all;
+}
+
+.input-field {
+  @apply w-full px-4 py-2 rounded-lg bg-white/50 border border-dark/20 focus:outline-none focus:border-success transition-all;
+}

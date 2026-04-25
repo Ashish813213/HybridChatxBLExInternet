@@ -1,0 +1,365 @@
+﻿Product Requirements Document (PRD): HybridChat
+Version: 1.0
+Date: April 1, 2026
+Product Owner: Ashish Sharma 
+Target Platforms: Android, iOS, Web (Progressive Web App)
+________________
+
+
+1. Overview
+HybridChat is a secure, hybrid messaging app that enables personal DMs, group chats, and broadcast channels using both Bluetooth (for local, offline communication) and internet (for remote messaging). The app prioritizes privacy, minimal server data storage, and end-to-end encryption.
+________________
+
+
+2. Objectives
+* Enable seamless messaging in both online and offline environments.
+* Ensure privacy: no message content stored on the server for Bluetooth messages.
+* Support real-time availability detection (Bluetooth vs. internet).
+* Provide a secure, encrypted, and user-friendly experience.
+________________
+
+
+3. Features & Requirements
+A. Core Features
+Feature
+	Description
+	Priority
+	Personal DMs
+	1:1 encrypted chat between users.
+	P0
+	Group Chats
+	Multi-user encrypted conversations.
+	P0
+	Broadcast Channels
+	One-to-many messaging (e.g., announcements, alerts).
+	P1
+	Bluetooth Messaging
+	Direct device-to-device messaging (no server storage for content).
+	P0
+	Internet Messaging
+	Messages routed via server when devices are out of Bluetooth range.
+	P0
+	User Availability
+	UI indicates if a user is available via Bluetooth or internet.
+	P0
+	End-to-End Encryption
+	All messages encrypted; keys never leave user devices.
+	P0
+	Secure Authentication
+	JWT-based login with refresh tokens.
+	P0
+	Message Sync
+	Sync messages when switching between Bluetooth and internet modes.
+	P0
+	Push Notifications
+	Notify users of new messages (via Firebase Cloud Messaging or similar).
+	P1
+	Message Search
+	Search within chats (local only for Bluetooth messages).
+	P2
+	Media Sharing
+	Share images/files (encrypted, stored on server for internet mode).
+	P2
+	________________
+
+
+4. Tech Stack
+A. Backend
+* Language: Node.js (TypeScript)
+* Framework: Express.js
+* Database: MongoDB (Atlas for cloud)
+* Authentication: JWT, bcrypt
+* Encryption: libsignal (Signal Protocol) for E2EE, OpenSSL for key management
+* Real-time: Socket.io (for internet mode)
+* API Documentation: Swagger/OpenAPI
+B. Frontend (Mobile)
+* Android: Kotlin, Android Bluetooth API, Retrofit for REST, WebSockets
+* State Management: Jetpack Compose (Android), Combine (iOS)
+* Encryption: Native libsignal bindings
+C. Frontend (Web - PWA)
+* Framework: React.js (Next.js)
+* Styling: Tailwind CSS
+* Bluetooth: Web Bluetooth API (Chrome/Edge only)
+* Real-time: Socket.io-client
+D. DevOps & Infrastructure
+* Hosting: AWS EC2 or Google Cloud Run
+* CI/CD: GitHub Actions
+* Monitoring: Sentry, Prometheus
+* Containerization: Docker, Kubernetes (if scaling)
+________________
+
+
+5. Database Schema (MongoDB)
+A. Collections
+1. Complete MongoDB Schema
+A. Collections & Fields
+MongoDB Collections (Detailed)
+Collection
+	Fields (Key: Type)
+	Indexes
+	Notes
+	Users
+	_id: ObjectId, username: String, email: String, passwordHash: String, publicKey: String, lastSeen: Date, bluetoothMac: String, isOnline: Boolean, deviceToken: String (for push)
+	email:1, username:1
+	publicKey used for E2E encryption key exchange.
+	Messages
+	_id: ObjectId, senderId: ObjectId, receiverId: ObjectId, groupId: ObjectId, channelId: ObjectId, content: String, timestamp: Date, mode: String ("bluetooth"/"internet"), isEncrypted: Boolean, metadata: Object
+	senderId:1, receiverId:1, timestamp:1
+	content is encrypted; metadata for Bluetooth messages only.
+	Groups
+	_id: ObjectId, name: String, adminId: ObjectId, members: [ObjectId], createdAt: Date, groupPublicKey: String
+	name:1, adminId:1
+	groupPublicKey for group message encryption.
+	Channels
+	_id: ObjectId, name: String, adminId: ObjectId, subscribers: [ObjectId], createdAt: Date, isPublic: Boolean
+	name:1
+	Broadcast channels can be public or private.
+	BluetoothSessions
+	_id: ObjectId, userId1: ObjectId, userId2: ObjectId, lastConnected: Date, sessionKey: String, metadata: Object
+	userId1:1, userId2:1
+	sessionKey for Bluetooth message encryption.
+	Tokens
+	_id: ObjectId, userId: ObjectId, token: String, expiresAt: Date, createdAt: Date
+	userId:1, token:1
+	JWT refresh tokens.
+	
+
+B. Indexes
+* Users: email:1 (unique), username:1 (unique)
+* Messages: senderId:1, receiverId:1, timestamp:1
+* Groups: name:1, adminId:1
+* Channels: name:1
+* BluetoothSessions: userId1:1, userId2:1
+________________
+
+
+6. API Routes
+A. Authentication
+Endpoint
+	Method
+	Description
+	Auth Required
+	Request Body
+	Response
+	/auth/register
+	POST
+	Register a new user.
+	No
+	{username, email, password, publicKey, bluetoothMac}
+	{user, token}
+	/auth/login
+	POST
+	Login and return JWT.
+	No
+	{email, password}
+	{user, token}
+	/auth/refresh
+	POST
+	Refresh JWT token.
+	Yes
+	{token}
+	{token}
+	/auth/logout
+	POST
+	Invalidate JWT.
+	Yes
+	
+
+	{success: true}
+	B. Messaging
+Endpoint
+	Method
+	Description
+	Auth Required
+	Request Body
+	Response
+	/messages/send
+	POST
+	Send a message (internet).
+	Yes
+	{receiverId, groupId, channelId, content, mode}
+	{message, success: true}
+	/messages/sync
+	GET
+	Sync messages for a user.
+	Yes
+	
+
+	{messages: [Message]}
+	/messages/bluetooth
+	POST
+	Log Bluetooth message metadata.
+	Yes
+	{receiverId, messageId, timestamp, metadata}
+	{success: true}
+	/messages/nearby
+	GET
+	List Bluetooth-available users.
+	Yes
+	
+
+	{users: [User]}
+	C. Groups & Channels
+Endpoint
+	Method
+	Description
+	Auth Required
+	Request Body
+	Response
+	/groups
+	POST
+	Create a new group.
+	Yes
+	{name, members: [userId]}
+	{group}
+	/groups/:id/messages
+	GET
+	Get group messages.
+	Yes
+	
+
+	{messages: [Message]}
+	/channels
+	POST
+	Create a new channel.
+	Yes
+	{name, isPublic}
+	{channel}
+	/channels/:id/subscribe
+	POST
+	Subscribe to a channel.
+	Yes
+	
+
+	{channel}
+	/channels/:id/messages
+	GET
+	Get channel messages.
+	Yes
+	
+
+	{messages: [Message]}
+	________________
+
+
+7. Security & Encryption
+A. Authentication
+* JWT: Tokens expire in 24 hours; refresh tokens last 30 days.
+* Password Hashing: bcrypt (12 rounds).
+* Rate Limiting: 100 requests/minute/IP.
+B. End-to-End Encryption
+* Key Exchange: Users exchange public keys during registration/first contact.
+* Message Encryption:
+   * 1:1 Chats: AES-256; key derived from sender’s private key + receiver’s public key.
+   * Group Chats: Group admin generates groupPublicKey; all members encrypt with this key.
+   * Bluetooth: Session key per Bluetooth session (stored in BluetoothSessions).
+* Libraries: libsignal (Signal Protocol) for key management.
+C. Data Privacy
+* Bluetooth Messages: Only metadata stored on server.
+* Internet Messages: Encrypted content stored; decryption keys never leave devices.
+________________
+
+
+8. Bluetooth Integration
+* Scanning: App scans for Bluetooth devices every 30 seconds.
+* Matching: Compares bluetoothMac with registered users.
+* Direct Transfer: Uses RFCOMM sockets; no server involvement.
+* Fallback: Auto-switches to internet mode if Bluetooth fails.
+________________
+
+
+9. UI/UX Requirements
+* User Availability: Icons/colors indicate if a user is reachable via Bluetooth or internet.
+* Message Status: Read receipts, delivery status (sent/delivered/read).
+* Encryption Indicators: Padlock icon for encrypted messages.
+* Offline Mode: Clear UI for Bluetooth-only messaging.
+________________
+
+
+10. Success Metrics
+* Adoption: % of messages sent via Bluetooth vs. internet.
+* Performance: Message delivery latency (target: <1s for Bluetooth, <2s for internet).
+* Security: 0 breaches or unauthorized access incidents.
+* User Satisfaction: CSAT score > 4.5/5.
+________________
+
+
+11. Risks & Mitigations
+Risk
+	Mitigation
+	Bluetooth reliability issues
+	Implement auto-fallback to internet mode.
+	Key management vulnerabilities
+	Use libsignal; regular security audits.
+	Server scalability
+	Use MongoDB Atlas; optimize indexes and queries.
+	Battery drain
+	Optimize Bluetooth scanning interval; use low-energy modes.
+	________________
+
+
+12. Roadmap
+Phase
+	Timeline
+	Deliverables
+	1
+	Week 1-4
+	Backend API, MongoDB schema, authentication, basic messaging
+	2
+	Week 5-8
+	Bluetooth module, E2EE, group/channel features
+	3
+	Week 9-12
+	UI/UX, push notifications, testing, bug fixes
+	4
+	Week 13-16
+	Beta release, user feedback, final polish
+	________________
+
+
+
+
+  
+
+flowchart TD
+    HybridChat_App_Start_8d306eec([HybridChat App Start]) --> Welcome_Screen_Logo__f5c6020b["Welcome Screen<br>Logo & Tagline<br>Login/Sign Up Buttons"]
+    Welcome_Screen_Logo__f5c6020b -->|Sign Up| Signup_Screen_Userna_889c7309[Signup Screen<br>Username, Email, Password<br>Already have account Link]
+    Welcome_Screen_Logo__f5c6020b -->|Login| Login_Screen_Email_P_b6924758[Login Screen<br>Email & Password<br>Forgot Password Link]
+    Signup_Screen_Userna_889c7309 -->|Continue| Authentication_Succe_128cec73{Authentication<br>Successful?}
+    Login_Screen_Email_P_b6924758 -->|Continue| Authentication_Succe_128cec73
+    Authentication_Succe_128cec73 -->|Yes| Bluetooth_Permission_2a2cc1ae["Bluetooth Permission Screen<br>Enable/Not Now Buttons"]
+    Authentication_Succe_128cec73 -->|No| Authentication_Error_765b045b[Authentication Error]
+    Bluetooth_Permission_2a2cc1ae -->|Enable| Home_Screen_Chat_Lis_8e6a0624["Home Screen - Chat List<br>Tabs: Chats/Groups/Channels<br>User Profile Icon<br>Settings Icon<br>FAB: New Chat"]
+    Bluetooth_Permission_2a2cc1ae -->|Not Now| Home_Screen_Chat_Lis_8e6a0624
+    Authentication_Error_765b045b --> Login_Screen_Email_P_b6924758
+    Home_Screen_Chat_Lis_8e6a0624 -->|View Chat| Chat_Type_72d63ce7{Chat Type?}
+    Home_Screen_Chat_Lis_8e6a0624 -->|Settings| Settings_Screen_Acco_fcabf4a4["Settings Screen<br>Account/Privacy/Notifications<br>Bluetooth Settings<br>About Section"]
+    Home_Screen_Chat_Lis_8e6a0624 -->|New Chat| New_Chat_Screen_Sear_5d902cf0[New Chat Screen<br>Search Users<br>User List with Status]
+    Chat_Type_72d63ce7 -->|Broadcast| Broadcast_Channel_Ch_5cb1f447[Broadcast Channel<br>Channel Name & Subscribers<br>Read-only for Subscribers<br>Admin Input Field]
+    Chat_Type_72d63ce7 -->|Group Chat| Group_Chat_Screen_Gr_88b778be[Group Chat Screen<br>Group Name & Members<br>Message Bubbles with Sender<br>Input Field]
+    Chat_Type_72d63ce7 -->|1:1 Chat| 1_1_Chat_Screen_Mess_a9e3d5fd[1:1 Chat Screen<br>Message Bubbles<br>Delivery Status<br>Mode Indicator<br>Input Field]
+    Settings_Screen_Acco_fcabf4a4 -->|Logout| Welcome_Screen_Logo__f5c6020b
+    Settings_Screen_Acco_fcabf4a4 -->|Back| Home_Screen_Chat_Lis_8e6a0624
+    Settings_Screen_Acco_fcabf4a4 -->|View Encryption| Encryption_Info_Moda_d5e4600c[Encryption Info Modal<br>E2E Encryption Details<br>Padlock Icon<br>OK Button]
+    New_Chat_Screen_Sear_5d902cf0 -->|Back| Home_Screen_Chat_Lis_8e6a0624
+    New_Chat_Screen_Sear_5d902cf0 -->|Select User| 1_1_Chat_Screen_Mess_a9e3d5fd
+    Broadcast_Channel_Ch_5cb1f447 -->|Back| Home_Screen_Chat_Lis_8e6a0624
+    Broadcast_Channel_Ch_5cb1f447 -->|Mode Switch| Mode_Switching_Notif_7c9bb066["Mode Switching Notification<br>Bluetooth/Internet Toggle<br>Got It Button"]
+    Group_Chat_Screen_Gr_88b778be -->|Back| Home_Screen_Chat_Lis_8e6a0624
+    Group_Chat_Screen_Gr_88b778be -->|Mode Switch| Mode_Switching_Notif_7c9bb066
+    Encryption_Info_Moda_d5e4600c -->|OK| Settings_Screen_Acco_fcabf4a4
+    1_1_Chat_Screen_Mess_a9e3d5fd -->|Back| Home_Screen_Chat_Lis_8e6a0624
+    1_1_Chat_Screen_Mess_a9e3d5fd -->|Mode Switch| Mode_Switching_Notif_7c9bb066
+    1_1_Chat_Screen_Mess_a9e3d5fd -->|View Profile| User_Profile_Screen__a35862ca[User Profile Screen<br>Availability Status<br>Bluetooth Mode Toggle<br>Internet Mode Toggle<br>Nearby Users List]
+    1_1_Chat_Screen_Mess_a9e3d5fd -->|Bluetooth Off| Bluetooth_Unavailabl_8e2fb3fe["Bluetooth Unavailable Popup<br>Turn On/Use Internet Only"]
+    1_1_Chat_Screen_Mess_a9e3d5fd -->|No Internet| Offline_Banner_Messa_1b63fed4[Offline Banner<br>Messages Queue for Later<br>Retry Button]
+    1_1_Chat_Screen_Mess_a9e3d5fd -->|User Not in Range| User_Not_in_Range_To_4834b9ac[User Not in Range Toast<br>Will Send via Internet]
+    Mode_Switching_Notif_7c9bb066 --> Home_Screen_Chat_Lis_8e6a0624
+    User_Profile_Screen__a35862ca -->|Back| Home_Screen_Chat_Lis_8e6a0624
+    Bluetooth_Unavailabl_8e2fb3fe -->|Turn On| 1_1_Chat_Screen_Mess_a9e3d5fd
+    Bluetooth_Unavailabl_8e2fb3fe -->|Use Internet| 1_1_Chat_Screen_Mess_a9e3d5fd
+    Offline_Banner_Messa_1b63fed4 -->|Retry| 1_1_Chat_Screen_Mess_a9e3d5fd
+    User_Not_in_Range_To_4834b9ac --> 1_1_Chat_Screen_Mess_a9e3d5fd
+classDef style0 stroke:#C3CFD9,fill:#FFFFFF
+class 1_1_Chat_Screen_Mess_a9e3d5fd,Authentication_Error_765b045b,Authentication_Succe_128cec73,Bluetooth_Permission_2a2cc1ae,Bluetooth_Unavailabl_8e2fb3fe,Broadcast_Channel_Ch_5cb1f447,Chat_Type_72d63ce7,Encryption_Info_Moda_d5e4600c,Group_Chat_Screen_Gr_88b778be,Home_Screen_Chat_Lis_8e6a0624,HybridChat_App_Start_8d306eec,Login_Screen_Email_P_b6924758,Mode_Switching_Notif_7c9bb066,New_Chat_Screen_Sear_5d902cf0,Offline_Banner_Messa_1b63fed4,Settings_Screen_Acco_fcabf4a4,Signup_Screen_Userna_889c7309,User_Not_in_Range_To_4834b9ac,User_Profile_Screen__a35862ca,Welcome_Screen_Logo__f5c6020b style0
+linkStyle 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37 stroke:#788896
