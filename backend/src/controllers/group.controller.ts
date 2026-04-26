@@ -2,6 +2,19 @@ import { Request, Response } from 'express';
 import { Group } from '../models/Group.js';
 import { Message } from '../models/Message.js';
 import { Types } from 'mongoose';
+import { randomBytes } from 'crypto';
+
+const generateUniqueGroupCode = async (): Promise<string> => {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const inviteCode = randomBytes(4).toString('hex').toUpperCase();
+    const exists = await Group.exists({ inviteCode });
+    if (!exists) {
+      return inviteCode;
+    }
+  }
+
+  throw new Error('Failed to generate unique group code');
+};
 
 export const getAllGroups = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -34,14 +47,53 @@ export const createGroup = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    const inviteCode = await generateUniqueGroupCode();
+
     const group = await Group.create({
       name,
       adminId: new Types.ObjectId(adminId),
       members: members?.map((id: string) => new Types.ObjectId(id)) || [],
+      inviteCode,
       createdAt: new Date(),
     });
 
-    res.status(201).json({ group });
+    res.status(201).json({ group, inviteCode: group.inviteCode });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+};
+
+export const joinGroupByCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+    const inviteCode = String(req.body?.code || '').trim().toUpperCase();
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (!inviteCode) {
+      res.status(400).json({ error: 'Group code is required' });
+      return;
+    }
+
+    const group = await Group.findOne({ inviteCode });
+    if (!group) {
+      res.status(404).json({ error: 'Invalid group code' });
+      return;
+    }
+
+    const memberId = new Types.ObjectId(userId);
+    const isAlreadyMember =
+      group.adminId.equals(memberId) || group.members.some((id) => id.equals(memberId));
+
+    if (!isAlreadyMember) {
+      group.members.push(memberId);
+      await group.save();
+    }
+
+    res.json({ group, joined: !isAlreadyMember });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }

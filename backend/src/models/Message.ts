@@ -1,5 +1,11 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
+export interface IMessageReaction {
+  userId: Types.ObjectId;
+  type: string;
+  reactedAt: Date;
+}
+
 export interface IMessage extends Document {
   senderId: Types.ObjectId;
   receiverId?: Types.ObjectId;
@@ -9,6 +15,7 @@ export interface IMessage extends Document {
   timestamp: Date;
   mode: 'bluetooth' | 'internet';
   isEncrypted: boolean;
+  reactions: IMessageReaction[];
   metadata?: Record<string, unknown>;
 }
 
@@ -22,6 +29,13 @@ const messageSchema = new Schema<IMessage>(
     timestamp: { type: Date, default: Date.now },
     mode: { type: String, enum: ['bluetooth', 'internet'], default: 'internet' },
     isEncrypted: { type: Boolean, default: true },
+    reactions: [
+      {
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        type: { type: String, required: true, trim: true },
+        reactedAt: { type: Date, default: Date.now },
+      },
+    ],
     metadata: { type: Schema.Types.Mixed },
   },
   { timestamps: true }

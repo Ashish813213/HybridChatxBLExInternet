@@ -1,7 +1,54 @@
 import { Request, Response } from 'express';
 import { Message } from '../models/Message.js';
 import { User } from '../models/User.js';
+import { Channel } from '../models/Channel.js';
 import { Types } from 'mongoose';
+
+type PopulatedUser = {
+  _id?: Types.ObjectId | string;
+  username?: string;
+  email?: string;
+  isOnline?: boolean;
+};
+
+const getIdString = (value: unknown): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (value instanceof Types.ObjectId) {
+    return value.toString();
+  }
+
+  if (typeof value === 'object') {
+    const obj = value as { _id?: Types.ObjectId | string; toString?: () => string };
+    if (obj._id) {
+      return String(obj._id);
+    }
+
+    if (typeof obj.toString === 'function') {
+      const asString = obj.toString();
+      return asString === '[object Object]' ? null : asString;
+    }
+  }
+
+  return null;
+};
+
+const mapConversationUser = (value: unknown, fallbackId: string) => {
+  const user = (value as PopulatedUser | null) || null;
+
+  return {
+    _id: fallbackId,
+    username: user?.username || 'Unknown',
+    email: user?.email || '',
+    isOnline: user?.isOnline || false,
+  };
+};
 
 export const searchUsers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -38,6 +85,19 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    if (channelId) {
+      const channel = await Channel.findById(channelId);
+      if (!channel) {
+        res.status(404).json({ error: 'Channel not found' });
+        return;
+      }
+
+      if (!channel.adminId.equals(new Types.ObjectId(senderId))) {
+        res.status(403).json({ error: 'Only channel creator can post. Members can only react.' });
+        return;
+      }
+    }
+
     const message = await Message.create({
       senderId: new Types.ObjectId(senderId),
       receiverId: receiverId ? new Types.ObjectId(receiverId) : undefined,
@@ -47,6 +107,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
       timestamp: new Date(),
       mode: mode || 'internet',
       isEncrypted: true,
+      reactions: [],
     });
 
     const io = req.app.get('io');
@@ -69,6 +130,16 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
           timestamp: message.timestamp,
         });
       }
+      if (channelId) {
+        io.to(`channel:${channelId}`).emit('new_message', {
+          _id: message._id,
+          senderId: senderId,
+          channelId: channelId,
+          content: message.content,
+          reactions: message.reactions,
+          timestamp: message.timestamp,
+        });
+      }
     }
 
     res.status(201).json({ message, success: true });
@@ -86,48 +157,71 @@ export const getConversations = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    const userObjectId = new Types.ObjectId(senderId);
+
     const messages = await Message.find({
+      receiverId: { $exists: true, $ne: null },
       $or: [
-        { senderId: new Types.ObjectId(senderId) },
-        { receiverId: new Types.ObjectId(senderId) },
+        { senderId: userObjectId },
+        { receiverId: userObjectId },
       ],
     })
       .populate('senderId', 'username email isOnline')
       .populate('receiverId', 'username email isOnline')
       .sort({ timestamp: -1 })
-      .limit(100);
+      .limit(200);
 
     const userId = String(senderId);
-    const conversationMap = new Map();
+    const conversationMap = new Map<
+      string,
+      {
+        _id: string;
+        username: string;
+        email: string;
+        isOnline: boolean;
+        lastMessage: {
+          _id: unknown;
+          senderId: string | null;
+          receiverId: string | null;
+          content: string;
+          timestamp: Date;
+        };
+      }
+    >();
 
     messages.forEach((msg) => {
-      const senderObj = msg.senderId as unknown as { _id: Types.ObjectId; username: string; email: string; isOnline: boolean };
-      const receiverObj = msg.receiverId as unknown as { _id: Types.ObjectId; username: string; email: string; isOnline: boolean } | null;
-      
-      const senderIdStr = String(msg.senderId);
-      const receiverIdStr = msg.receiverId ? String(msg.receiverId) : null;
+      const senderIdStr = getIdString(msg.senderId);
+      const receiverIdStr = getIdString(msg.receiverId);
 
-      if (senderIdStr === userId && receiverIdStr && receiverIdStr !== userId) {
-        if (!conversationMap.has(receiverIdStr)) {
-          conversationMap.set(receiverIdStr, {
-            _id: receiverIdStr,
-            username: receiverObj?.username || 'Unknown',
-            email: receiverObj?.email || '',
-            isOnline: receiverObj?.isOnline || false,
-            lastMessage: msg,
-          });
-        }
-      } else if (receiverIdStr === userId && senderIdStr !== userId) {
-        if (!conversationMap.has(senderIdStr)) {
-          conversationMap.set(senderIdStr, {
-            _id: senderIdStr,
-            username: senderObj?.username || 'Unknown',
-            email: senderObj?.email || '',
-            isOnline: senderObj?.isOnline || false,
-            lastMessage: msg,
-          });
-        }
+      if (!senderIdStr || !receiverIdStr) {
+        return;
       }
+
+      let conversationId: string | null = null;
+      let conversationUser: ReturnType<typeof mapConversationUser> | null = null;
+
+      if (senderIdStr === userId && receiverIdStr !== userId) {
+        conversationId = receiverIdStr;
+        conversationUser = mapConversationUser(msg.receiverId, receiverIdStr);
+      } else if (receiverIdStr === userId && senderIdStr !== userId) {
+        conversationId = senderIdStr;
+        conversationUser = mapConversationUser(msg.senderId, senderIdStr);
+      }
+
+      if (!conversationId || !conversationUser || conversationMap.has(conversationId)) {
+        return;
+      }
+
+      conversationMap.set(conversationId, {
+        ...conversationUser,
+        lastMessage: {
+          _id: msg._id,
+          senderId: senderIdStr,
+          receiverId: receiverIdStr,
+          content: msg.content,
+          timestamp: msg.timestamp,
+        },
+      });
     });
 
     res.json({ conversations: Array.from(conversationMap.values()) });
@@ -145,18 +239,28 @@ export const syncMessages = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    const userObjectId = new Types.ObjectId(senderId);
+
     const messages = await Message.find({
+      receiverId: { $exists: true, $ne: null },
       $or: [
-        { senderId: new Types.ObjectId(senderId) },
-        { receiverId: new Types.ObjectId(senderId) },
+        { senderId: userObjectId },
+        { receiverId: userObjectId },
       ],
     })
-      .populate('senderId', 'username')
-      .populate('receiverId', 'username')
-      .sort({ timestamp: -1 })
-      .limit(100);
+      .sort({ timestamp: 1 })
+      .limit(500)
+      .lean();
 
-    res.json({ messages });
+    const normalizedMessages = messages.map((msg) => ({
+      ...msg,
+      senderId: getIdString(msg.senderId),
+      receiverId: getIdString(msg.receiverId),
+      groupId: getIdString(msg.groupId),
+      channelId: getIdString(msg.channelId),
+    }));
+
+    res.json({ messages: normalizedMessages });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }

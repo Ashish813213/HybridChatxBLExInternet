@@ -63,6 +63,7 @@ export const messageAPI = {
 export const groupAPI = {
   create: (data) => api.post('/groups', data),
   getAll: () => api.get('/groups'),
+  joinByCode: (code) => api.post('/groups/join', { code }),
   getMessages: (id) => api.get(`/groups/${id}/messages`),
   addMember: (id, userId) => api.post(`/groups/${id}/members`, { userId }),
 };
@@ -70,6 +71,7 @@ export const groupAPI = {
 export const channelAPI = {
   create: (data) => api.post('/channels', data),
   subscribe: (id) => api.post(`/channels/${id}/subscribe`),
+  reactToMessage: (id, messageId, type) => api.post(`/channels/${id}/messages/${messageId}/react`, { type }),
   getMessages: (id) => api.get(`/channels/${id}/messages`),
   getAll: () => api.get('/channels'),
 };

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { messageAPI } from '../../services/api';
 
 export const ChatList = ({ onSelectChat, selectedId, refreshTrigger }) => {
   const [conversations, setConversations] = useState([]);
@@ -8,12 +9,8 @@ export const ChatList = ({ onSelectChat, selectedId, refreshTrigger }) => {
     const fetchConversations = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/messages/conversations', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setConversations(data.conversations || []);
+        const res = await messageAPI.conversations();
+        setConversations(res.data.conversations || []);
       } catch (err) {
         console.error('Failed to fetch chats:', err);
       } finally {

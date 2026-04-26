@@ -4,6 +4,7 @@ export interface IGroup extends Document {
   name: string;
   adminId: Types.ObjectId;
   members: Types.ObjectId[];
+  inviteCode?: string;
   createdAt: Date;
   groupPublicKey?: string;
 }
@@ -13,6 +14,7 @@ const groupSchema = new Schema<IGroup>(
     name: { type: String, required: true },
     adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     members: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    inviteCode: { type: String, trim: true, uppercase: true },
     createdAt: { type: Date, default: Date.now },
     groupPublicKey: { type: String },
   },
@@ -21,5 +23,6 @@ const groupSchema = new Schema<IGroup>(
 
 groupSchema.index({ name: 1 });
 groupSchema.index({ adminId: 1 });
+groupSchema.index({ inviteCode: 1 }, { unique: true, sparse: true });
 
 export const Group = mongoose.model<IGroup>('Group', groupSchema);

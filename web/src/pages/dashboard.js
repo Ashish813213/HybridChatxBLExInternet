@@ -10,6 +10,32 @@ import { MessageBubble } from '../components/chat/MessageBubble';
 import { ChatInput } from '../components/chat/ChatInput';
 import { Button } from '../components/common/Button';
 
+const getEntityId = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    if (value._id) return String(value._id);
+    if (value.id) return String(value.id);
+  }
+  return String(value);
+};
+
+const getUserId = (currentUser) => String(currentUser?._id || currentUser?.id || '');
+
+const appendUniqueMessage = (previousMessages, nextMessage) => {
+  const nextId = getEntityId(nextMessage?._id);
+  if (!nextId) {
+    return [...previousMessages, nextMessage];
+  }
+
+  const exists = previousMessages.some((message) => getEntityId(message?._id) === nextId);
+  if (exists) {
+    return previousMessages;
+  }
+
+  return [...previousMessages, nextMessage];
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -33,19 +59,55 @@ export default function Dashboard() {
   useEffect(() => {
     if (socket) {
       const handleNewMessage = (data) => {
-        const msgSenderId = String(data.senderId);
-        const msgReceiverId = String(data.receiverId);
-        const currentUserId = String(user?._id);
+        const selectedType = selectedChat?.type;
+        const selectedId = selectedChat ? String(selectedChat._id) : null;
+
+        if (selectedType === 'channel' && selectedId && getEntityId(data.channelId) === selectedId) {
+          setMessages((prev) => appendUniqueMessage(prev, data));
+          return;
+        }
+
+        if (selectedType === 'group' && selectedId && getEntityId(data.groupId) === selectedId) {
+          setMessages((prev) => appendUniqueMessage(prev, data));
+          return;
+        }
+
+        const msgSenderId = getEntityId(data.senderId);
+        const msgReceiverId = getEntityId(data.receiverId);
+        const currentUserId = getUserId(user);
         const chatId = selectedChat ? String(selectedChat._id) : null;
 
-        if (chatId && (msgSenderId === chatId || msgReceiverId === chatId)) {
-          setMessages((prev) => [...prev, data]);
+        if (
+          chatId &&
+          ((msgSenderId === chatId && msgReceiverId === currentUserId) ||
+            (msgSenderId === currentUserId && msgReceiverId === chatId))
+        ) {
+          setMessages((prev) => appendUniqueMessage(prev, data));
         }
         
         setRefreshTrigger((prev) => prev + 1);
       };
+
+      const handleChannelReactionUpdated = (data) => {
+        if (!selectedChat || selectedChat.type !== 'channel') {
+          return;
+        }
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            String(msg._id) === String(data.messageId)
+              ? { ...msg, reactions: data.reactions || [] }
+              : msg
+          )
+        );
+      };
+
       on('new_message', handleNewMessage);
-      return () => off('new_message', handleNewMessage);
+      on('channel_reaction_updated', handleChannelReactionUpdated);
+      return () => {
+        off('new_message', handleNewMessage);
+        off('channel_reaction_updated', handleChannelReactionUpdated);
+      };
     }
   }, [socket, user, selectedChat, on, off]);
 
@@ -67,12 +129,12 @@ export default function Dashboard() {
     try {
       const res = await messageAPI.sync();
       const allMessages = res.data.messages || [];
-      const userId = String(user?._id);
+      const userId = getUserId(user);
       const chatIdStr = String(chatId);
       
       return allMessages.filter((msg) => {
-        const msgSenderId = String(msg.senderId);
-        const msgReceiverId = msg.receiverId ? String(msg.receiverId) : null;
+        const msgSenderId = getEntityId(msg.senderId);
+        const msgReceiverId = msg.receiverId ? getEntityId(msg.receiverId) : null;
         return (msgSenderId === chatIdStr && msgReceiverId === userId) ||
                (msgSenderId === userId && msgReceiverId === chatIdStr);
       });
@@ -92,7 +154,7 @@ export default function Dashboard() {
 
   const handleUserSelect = (user) => {
     handleSelectChat({
-      _id: user._id,
+      _id: user._id || user.id,
       username: user.username,
       email: user.email,
       isOnline: user.isOnline,
@@ -117,8 +179,7 @@ export default function Dashboard() {
       const res = await messageAPI.send(payload);
 
       if (res.data.message) {
-        setMessages((prev) => [...prev, res.data.message]);
-        emit('send_message', { ...payload, content });
+        setMessages((prev) => appendUniqueMessage(prev, res.data.message));
         setRefreshTrigger((prev) => prev + 1);
       }
     } catch (err) {
@@ -132,10 +193,38 @@ export default function Dashboard() {
     const name = prompt('Enter group name:');
     if (!name) return;
     try {
-      await groupAPI.create({ name, members: [] });
-      fetchGroups();
+      const res = await groupAPI.create({ name, members: [] });
+      await fetchGroups();
+
+      const createdCode = res.data?.inviteCode || res.data?.group?.inviteCode;
+      if (createdCode) {
+        alert(`Group created. Share this code to invite users: ${createdCode}`);
+      }
     } catch (err) {
       console.error('Failed to create group:', err);
+    }
+  };
+
+  const handleJoinGroup = async () => {
+    const code = prompt('Enter group code:');
+    if (!code) return;
+
+    try {
+      const res = await groupAPI.joinByCode(code);
+      await fetchGroups();
+
+      if (res.data?.group?._id) {
+        await handleSelectGroup(res.data.group);
+      }
+
+      if (res.data?.joined) {
+        alert('Joined group successfully');
+      } else {
+        alert('You are already a member of this group');
+      }
+    } catch (err) {
+      console.error('Failed to join group:', err);
+      alert(err?.response?.data?.error || 'Failed to join group');
     }
   };
 
@@ -186,6 +275,7 @@ export default function Dashboard() {
   const handleSelectGroup = async (group) => {
     try {
       const res = await groupAPI.getMessages(group._id);
+      emit('join_group', String(group._id));
       setSelectedChat({ ...group, type: 'group' });
       setMessages(res.data.messages || []);
     } catch (err) {
@@ -196,10 +286,28 @@ export default function Dashboard() {
   const handleSelectChannel = async (channel) => {
     try {
       const res = await channelAPI.getMessages(channel._id);
+      emit('join_channel', String(channel._id));
       setSelectedChat({ ...channel, type: 'channel' });
       setMessages(res.data.messages || []);
     } catch (err) {
       console.error('Failed to fetch channel messages:', err);
+    }
+  };
+
+  const handleReactToChannelMessage = async (messageId, type) => {
+    if (!selectedChat || selectedChat.type !== 'channel') return;
+
+    try {
+      const res = await channelAPI.reactToMessage(selectedChat._id, messageId, type);
+      const updated = res.data?.message;
+      if (!updated) return;
+
+      setMessages((prev) =>
+        prev.map((msg) => (String(msg._id) === String(messageId) ? updated : msg))
+      );
+    } catch (err) {
+      console.error('Failed to react to channel post:', err);
+      alert(err?.response?.data?.error || 'Failed to react to channel post');
     }
   };
 
@@ -241,9 +349,9 @@ export default function Dashboard() {
               ) : (
                 messages.map((msg, idx) => (
                   <MessageBubble
-                    key={idx}
+                    key={getEntityId(msg._id) || idx}
                     content={msg.content}
-                    isOwn={String(msg.senderId) === String(user?._id)}
+                    isOwn={getEntityId(msg.senderId) === getUserId(user)}
                     timestamp={msg.timestamp}
                   />
                 ))
@@ -264,7 +372,10 @@ export default function Dashboard() {
   const renderGroupsTab = () => (
     <>
       <div className="w-1/3 border-r border-dark/10 p-4">
-        <Button onClick={handleCreateGroup} className="w-full mb-4">Create Group</Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+          <Button onClick={handleCreateGroup} className="w-full">Create Group</Button>
+          <Button onClick={handleJoinGroup} variant="accent" className="w-full">Join Group</Button>
+        </div>
         <div className="space-y-2">
           {groups.length === 0 ? (
             <p className="text-dark/60">No groups yet</p>
@@ -276,6 +387,7 @@ export default function Dashboard() {
                 }`}>
                 <p className="font-medium text-dark">{group.name}</p>
                 <p className="text-xs text-dark/60">{group.members?.length || 0} members</p>
+                <p className="text-xs text-dark/50">Code: {group.inviteCode || 'Not available'}</p>
               </div>
             ))
           )}
@@ -287,7 +399,7 @@ export default function Dashboard() {
             {renderChatHeader()}
             <div className="flex-1 overflow-y-auto p-4">
               {messages.map((msg, idx) => (
-                <MessageBubble key={idx} content={msg.content} isOwn={false} timestamp={msg.timestamp} />
+                <MessageBubble key={getEntityId(msg._id) || idx} content={msg.content} isOwn={false} timestamp={msg.timestamp} />
               ))}
               <div ref={messagesEndRef} />
             </div>
@@ -324,16 +436,37 @@ export default function Dashboard() {
       </div>
       <div className="flex-1 flex flex-col">
         {selectedChat && selectedChat.type === 'channel' ? (
+          (() => {
+            const currentUserId = getUserId(user);
+            const isChannelCreator = getEntityId(selectedChat.adminId) === currentUserId;
+
+            return (
           <>
             {renderChatHeader()}
             <div className="flex-1 overflow-y-auto p-4">
               {messages.map((msg, idx) => (
-                <MessageBubble key={idx} content={msg.content} isOwn={false} timestamp={msg.timestamp} />
+                <MessageBubble
+                  key={getEntityId(msg._id) || idx}
+                  content={msg.content}
+                  isOwn={getEntityId(msg.senderId) === currentUserId}
+                  reactions={msg.reactions || []}
+                  canReact={!isChannelCreator}
+                  onReact={(type) => handleReactToChannelMessage(msg._id, type)}
+                  timestamp={msg.timestamp}
+                />
               ))}
               <div ref={messagesEndRef} />
             </div>
-            <ChatInput onSend={handleSendMessage} disabled={sending} />
+            {isChannelCreator ? (
+              <ChatInput onSend={handleSendMessage} disabled={sending} />
+            ) : (
+              <div className="p-4 glass mt-auto text-sm text-dark/70">
+                Only the channel creator can post. Members can react to posts.
+              </div>
+            )}
           </>
+            );
+          })()
         ) : (
           <div className="flex-1 flex items-center justify-center text-dark/60">Select a channel</div>
         )}
