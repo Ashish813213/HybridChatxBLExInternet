@@ -1,0 +1,27 @@
+# ==============================
+# Android / Kotlin / Gradle
+# ==============================
+*.iml
+.gradle/
+local.properties
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android Studio / IntelliJ
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Kotlin
+*.kotlin_module
+
+# Keystore (important!)
+*.jks
+*.keystore
