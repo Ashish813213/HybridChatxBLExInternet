@@ -12,6 +12,7 @@ export interface IMessage extends Document {
   groupId?: Types.ObjectId;
   channelId?: Types.ObjectId;
   content: string;
+  imageUrl?: string;
   timestamp: Date;
   mode: 'bluetooth' | 'internet';
   isEncrypted: boolean;
@@ -25,7 +26,8 @@ const messageSchema = new Schema<IMessage>(
     receiverId: { type: Schema.Types.ObjectId, ref: 'User' },
     groupId: { type: Schema.Types.ObjectId, ref: 'Group' },
     channelId: { type: Schema.Types.ObjectId, ref: 'Channel' },
-    content: { type: String, required: true },
+    content: { type: String, default: '' },
+    imageUrl: { type: String },
     timestamp: { type: Date, default: Date.now },
     mode: { type: String, enum: ['bluetooth', 'internet'], default: 'internet' },
     isEncrypted: { type: Boolean, default: true },

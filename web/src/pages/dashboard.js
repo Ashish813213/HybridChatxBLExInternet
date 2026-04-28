@@ -8,6 +8,7 @@ import { ChatList } from '../components/navigation/ChatList';
 import { SearchUsers } from '../components/navigation/SearchUsers';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { ChatInput } from '../components/chat/ChatInput';
+import { ImageViewer } from '../components/chat/ImageViewer';
 import { Button } from '../components/common/Button';
 
 const getEntityId = (value) => {
@@ -48,6 +49,7 @@ export default function Dashboard() {
   const [channels, setChannels] = useState([]);
   const [sending, setSending] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [viewerImage, setViewerImage] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -162,18 +164,18 @@ export default function Dashboard() {
     });
   };
 
-  const handleSendMessage = async (content) => {
+  const handleSendMessage = async (content, imageUrl = null) => {
     if (!selectedChat || sending) return;
     setSending(true);
 
     try {
       let payload;
       if (selectedChat.type === 'chat') {
-        payload = { receiverId: selectedChat._id, content, mode: 'internet' };
+        payload = { receiverId: selectedChat._id, content, imageUrl, mode: 'internet' };
       } else if (selectedChat.type === 'group') {
-        payload = { groupId: selectedChat._id, content, mode: 'internet' };
+        payload = { groupId: selectedChat._id, content, imageUrl, mode: 'internet' };
       } else {
-        payload = { channelId: selectedChat._id, content, mode: 'internet' };
+        payload = { channelId: selectedChat._id, content, imageUrl, mode: 'internet' };
       }
 
       const res = await messageAPI.send(payload);
@@ -351,8 +353,10 @@ export default function Dashboard() {
                   <MessageBubble
                     key={getEntityId(msg._id) || idx}
                     content={msg.content}
+                    imageUrl={msg.imageUrl}
                     isOwn={getEntityId(msg.senderId) === getUserId(user)}
                     timestamp={msg.timestamp}
+                    onImageClick={setViewerImage}
                   />
                 ))
               )}
@@ -399,7 +403,7 @@ export default function Dashboard() {
             {renderChatHeader()}
             <div className="flex-1 overflow-y-auto p-4">
               {messages.map((msg, idx) => (
-                <MessageBubble key={getEntityId(msg._id) || idx} content={msg.content} isOwn={false} timestamp={msg.timestamp} />
+                <MessageBubble key={getEntityId(msg._id) || idx} content={msg.content} imageUrl={msg.imageUrl} isOwn={getEntityId(msg.senderId) === getUserId(user)} timestamp={msg.timestamp} onImageClick={setViewerImage} />
               ))}
               <div ref={messagesEndRef} />
             </div>
@@ -448,11 +452,13 @@ export default function Dashboard() {
                 <MessageBubble
                   key={getEntityId(msg._id) || idx}
                   content={msg.content}
+                  imageUrl={msg.imageUrl}
                   isOwn={getEntityId(msg.senderId) === currentUserId}
                   reactions={msg.reactions || []}
                   canReact={!isChannelCreator}
                   onReact={(type) => handleReactToChannelMessage(msg._id, type)}
                   timestamp={msg.timestamp}
+                  onImageClick={setViewerImage}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -490,6 +496,7 @@ export default function Dashboard() {
         {activeTab === 'groups' && renderGroupsTab()}
         {activeTab === 'channels' && renderChannelsTab()}
       </div>
+      {viewerImage && <ImageViewer imageUrl={viewerImage} onClose={() => setViewerImage(null)} />}
     </div>
   );
 }

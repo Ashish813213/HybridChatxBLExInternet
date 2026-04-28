@@ -14,6 +14,8 @@ A Next.js web client for HybridChat messaging application. Acts as a synchronize
 | Internet Messaging | ✓ | Real-time via Socket.io |
 | User Authentication | ✓ | JWT with refresh tokens |
 | Message Sync | ✓ | Sync on reconnection |
+| Image Messaging | ✓ | Send images via Cloudinary |
+| Fullscreen Image Viewer | ✓ | Zoomable fullscreen image preview |
 
 ---
 
@@ -39,7 +41,8 @@ A Next.js web client for HybridChat messaging application. Acts as a synchronize
 │   │   │   └── Input.js
 │   │   ├── chat/
 │   │   │   ├── ChatInput.js
-│   │   │   └── MessageBubble.js
+│   │   │   ├── MessageBubble.js
+│   │   │   └── ImageViewer.js
 │   │   └── navigation/
 │   │       ├── ChatList.js
 │   │       └── Sidebar.js
@@ -75,6 +78,7 @@ A Next.js web client for HybridChat messaging application. Acts as a synchronize
 
 ### Messaging (`/messages`)
 - `POST /messages/send` - Send message
+- `POST /messages/upload-image` - Upload image via Cloudinary
 - `GET /messages/sync` - Sync all messages
 - `GET /messages/nearby` - List online users
 
@@ -136,3 +140,5 @@ NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
 - [x] Create/view groups
 - [x] Create/subscribe channels
 - [x] Message synchronization
+- [x] Image messaging via Cloudinary
+- [x] Fullscreen image viewer with zoom

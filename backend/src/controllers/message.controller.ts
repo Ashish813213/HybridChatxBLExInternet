@@ -72,7 +72,7 @@ export const searchUsers = async (req: Request, res: Response): Promise<void> =>
 
 export const sendMessage = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { receiverId, groupId, channelId, content, mode } = req.body;
+    const { receiverId, groupId, channelId, content, imageUrl, mode } = req.body;
     const senderId = req.userId;
 
     if (!senderId) {
@@ -82,6 +82,12 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
 
     if (!receiverId && !groupId && !channelId) {
       res.status(400).json({ error: 'Recipient required' });
+      return;
+    }
+
+    // Must have either content or image
+    if (!content && !imageUrl) {
+      res.status(400).json({ error: 'Message content or image required' });
       return;
     }
 
@@ -103,7 +109,8 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
       receiverId: receiverId ? new Types.ObjectId(receiverId) : undefined,
       groupId: groupId ? new Types.ObjectId(groupId) : undefined,
       channelId: channelId ? new Types.ObjectId(channelId) : undefined,
-      content,
+      content: content || '',
+      imageUrl,
       timestamp: new Date(),
       mode: mode || 'internet',
       isEncrypted: true,
@@ -118,6 +125,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
           senderId: senderId,
           receiverId: receiverId,
           content: message.content,
+          imageUrl: message.imageUrl,
           timestamp: message.timestamp,
         });
       }
@@ -127,6 +135,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
           senderId: senderId,
           groupId: groupId,
           content: message.content,
+          imageUrl: message.imageUrl,
           timestamp: message.timestamp,
         });
       }
@@ -136,6 +145,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
           senderId: senderId,
           channelId: channelId,
           content: message.content,
+          imageUrl: message.imageUrl,
           reactions: message.reactions,
           timestamp: message.timestamp,
         });

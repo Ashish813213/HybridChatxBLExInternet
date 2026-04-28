@@ -28,6 +28,7 @@
 - [x] Create /messages/bluetooth (metadata only)
 - [x] Create /messages/nearby route
 - [x] Integrate Socket.io for real-time
+- [x] Add image messaging via Cloudinary
 
 ### 5. Groups & Channels
 - [x] Build /groups CRUD routes
@@ -74,7 +75,7 @@
 │   │   └── channel.routes.ts
 │   ├── sockets/               # WebSocket Events
 │   │   └── index.ts
-│   └── utils/                 # Utility functions (JWT, bcrypt)
+│   └── utils/                 # Utility functions (JWT, bcrypt, Cloudinary)
 ├── .env
 ├── tsconfig.json
 └── package.json
@@ -93,6 +94,7 @@
 ### B. Messaging (`/messages`)
 - `POST /messages/send` - Send internet message (Auth: Yes)
 - `GET /messages/sync` - Sync messages (Auth: Yes)
+- `POST /messages/upload-image` - Upload image via Cloudinary (Auth: Yes)
 - `POST /messages/bluetooth` - Log Bluetooth metadata (Auth: Yes)
 - `GET /messages/nearby` - List Bluetooth-available users (Auth: Yes)
 
@@ -129,4 +131,7 @@ JWT_SECRET=your_jwt_secret_key
 JWT_REFRESH_SECRET=your_refresh_secret_key
 JWT_EXPIRES_IN=24h
 JWT_REFRESH_EXPIRES_IN=30d
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```

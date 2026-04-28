@@ -12,7 +12,7 @@ const buildReactionSummary = (reactions = []) => {
   }, {});
 };
 
-export const MessageBubble = ({ content, isOwn, timestamp, reactions = [], canReact = false, onReact }) => {
+export const MessageBubble = ({ content, imageUrl, isOwn, timestamp, reactions = [], canReact = false, onReact, onImageClick }) => {
   const time = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
   const reactionSummary = buildReactionSummary(reactions);
 
@@ -21,7 +21,16 @@ export const MessageBubble = ({ content, isOwn, timestamp, reactions = [], canRe
       <div className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl ${
         isOwn ? 'bg-success text-dark rounded-br-md' : 'bg-white/50 text-dark rounded-bl-md'
       }`}>
-        <p className="text-sm">{content}</p>
+        {imageUrl && (
+          <img 
+            src={imageUrl} 
+            alt="Shared image" 
+            className="rounded-lg mb-2 max-w-full cursor-zoom-in" 
+            style={{ maxWidth: '200px' }}
+            onClick={() => onImageClick?.(imageUrl)}
+          />
+        )}
+        {content && <p className="text-sm">{content}</p>}
         {Object.keys(reactionSummary).length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-dark/70">
             {Object.entries(reactionSummary).map(([type, count]) => (
