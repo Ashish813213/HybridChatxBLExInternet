@@ -9,6 +9,7 @@ import { SearchUsers } from '../components/navigation/SearchUsers';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { ChatInput } from '../components/chat/ChatInput';
 import { ImageViewer } from '../components/chat/ImageViewer';
+import { DocumentViewer } from '../components/chat/DocumentViewer';
 import { Button } from '../components/common/Button';
 
 const getEntityId = (value) => {
@@ -50,6 +51,7 @@ export default function Dashboard() {
   const [sending, setSending] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [viewerImage, setViewerImage] = useState(null);
+  const [viewerDocument, setViewerDocument] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -164,18 +166,18 @@ export default function Dashboard() {
     });
   };
 
-  const handleSendMessage = async (content, imageUrl = null) => {
+  const handleSendMessage = async (content, imageUrl = null, document = null) => {
     if (!selectedChat || sending) return;
     setSending(true);
 
     try {
       let payload;
       if (selectedChat.type === 'chat') {
-        payload = { receiverId: selectedChat._id, content, imageUrl, mode: 'internet' };
+        payload = { receiverId: selectedChat._id, content, imageUrl, documentUrl: document?.url, documentName: document?.name, documentType: document?.type, mode: 'internet' };
       } else if (selectedChat.type === 'group') {
-        payload = { groupId: selectedChat._id, content, imageUrl, mode: 'internet' };
+        payload = { groupId: selectedChat._id, content, imageUrl, documentUrl: document?.url, documentName: document?.name, documentType: document?.type, mode: 'internet' };
       } else {
-        payload = { channelId: selectedChat._id, content, imageUrl, mode: 'internet' };
+        payload = { channelId: selectedChat._id, content, imageUrl, documentUrl: document?.url, documentName: document?.name, documentType: document?.type, mode: 'internet' };
       }
 
       const res = await messageAPI.send(payload);
@@ -354,9 +356,13 @@ export default function Dashboard() {
                     key={getEntityId(msg._id) || idx}
                     content={msg.content}
                     imageUrl={msg.imageUrl}
+                    documentUrl={msg.documentUrl}
+                    documentName={msg.documentName}
+                    documentType={msg.documentType}
                     isOwn={getEntityId(msg.senderId) === getUserId(user)}
                     timestamp={msg.timestamp}
                     onImageClick={setViewerImage}
+                    onDocumentClick={setViewerDocument}
                   />
                 ))
               )}
@@ -403,7 +409,8 @@ export default function Dashboard() {
             {renderChatHeader()}
             <div className="flex-1 overflow-y-auto p-4">
               {messages.map((msg, idx) => (
-                <MessageBubble key={getEntityId(msg._id) || idx} content={msg.content} imageUrl={msg.imageUrl} isOwn={getEntityId(msg.senderId) === getUserId(user)} timestamp={msg.timestamp} onImageClick={setViewerImage} />
+                <MessageBubble key={getEntityId(msg._id) || idx} content={msg.content} imageUrl={msg.imageUrl} documentUrl={msg.documentUrl} documentName={msg.documentName} documentType={msg.documentType} isOwn={getEntityId(msg.senderId) === getUserId(user)} timestamp={msg.timestamp} onImageClick={setViewerImage}
+                    onDocumentClick={setViewerDocument} />
               ))}
               <div ref={messagesEndRef} />
             </div>
@@ -453,12 +460,16 @@ export default function Dashboard() {
                   key={getEntityId(msg._id) || idx}
                   content={msg.content}
                   imageUrl={msg.imageUrl}
+                  documentUrl={msg.documentUrl}
+                  documentName={msg.documentName}
+                  documentType={msg.documentType}
                   isOwn={getEntityId(msg.senderId) === currentUserId}
                   reactions={msg.reactions || []}
                   canReact={!isChannelCreator}
                   onReact={(type) => handleReactToChannelMessage(msg._id, type)}
                   timestamp={msg.timestamp}
                   onImageClick={setViewerImage}
+                    onDocumentClick={setViewerDocument}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -497,6 +508,13 @@ export default function Dashboard() {
         {activeTab === 'channels' && renderChannelsTab()}
       </div>
       {viewerImage && <ImageViewer imageUrl={viewerImage} onClose={() => setViewerImage(null)} />}
+      {viewerDocument && (
+        <DocumentViewer 
+          documentUrl={viewerDocument.url} 
+          documentName={viewerDocument.name}
+          onClose={() => setViewerDocument(null)} 
+        />
+      )}
     </div>
   );
 }

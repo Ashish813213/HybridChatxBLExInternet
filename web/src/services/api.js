@@ -63,6 +63,15 @@ export const messageAPI = {
       },
     });
   },
+  uploadDocument: async (formData) => {
+    const token = localStorage.getItem('token');
+    return axios.post(`${API_URL}/messages/upload-document`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
   sync: () => api.get('/messages/sync'),
   conversations: () => api.get('/messages/conversations'),
   nearby: () => api.get('/messages/nearby'),

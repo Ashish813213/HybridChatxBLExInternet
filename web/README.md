@@ -16,6 +16,8 @@ A Next.js web client for HybridChat messaging application. Acts as a synchronize
 | Message Sync | ✓ | Sync on reconnection |
 | Image Messaging | ✓ | Send images via Cloudinary |
 | Fullscreen Image Viewer | ✓ | Zoomable fullscreen image preview |
+| Document Sharing | ✓ | Upload and share documents (PDF, DOC, XLS, etc.) |
+| Document Viewer | ✓ | Fullscreen viewer with PDF preview and download |
 
 ---
 
@@ -42,7 +44,8 @@ A Next.js web client for HybridChat messaging application. Acts as a synchronize
 │   │   ├── chat/
 │   │   │   ├── ChatInput.js
 │   │   │   ├── MessageBubble.js
-│   │   │   └── ImageViewer.js
+│   │   │   ├── ImageViewer.js
+│   │   │   └── DocumentViewer.js
 │   │   └── navigation/
 │   │       ├── ChatList.js
 │   │       └── Sidebar.js
@@ -79,6 +82,7 @@ A Next.js web client for HybridChat messaging application. Acts as a synchronize
 ### Messaging (`/messages`)
 - `POST /messages/send` - Send message
 - `POST /messages/upload-image` - Upload image via Cloudinary
+- `POST /messages/upload-document` - Upload document via Cloudinary
 - `GET /messages/sync` - Sync all messages
 - `GET /messages/nearby` - List online users
 
@@ -142,3 +146,5 @@ NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
 - [x] Message synchronization
 - [x] Image messaging via Cloudinary
 - [x] Fullscreen image viewer with zoom
+- [x] Document sharing (PDF, DOC, XLS, PPT, ZIP)
+- [x] Document viewer with PDF preview and download
