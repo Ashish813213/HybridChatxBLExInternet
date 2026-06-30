@@ -29,6 +29,7 @@
 - [x] Create /messages/nearby route
 - [x] Integrate Socket.io for real-time
 - [x] Add image messaging via Cloudinary
+- [x] Add document upload (preserves original format)
 
 ### 5. Groups & Channels
 - [x] Build /groups CRUD routes
@@ -95,6 +96,7 @@
 - `POST /messages/send` - Send internet message (Auth: Yes)
 - `GET /messages/sync` - Sync messages (Auth: Yes)
 - `POST /messages/upload-image` - Upload image via Cloudinary (Auth: Yes)
+- `POST /messages/upload-document` - Upload document via Cloudinary (Auth: Yes)
 - `POST /messages/bluetooth` - Log Bluetooth metadata (Auth: Yes)
 - `GET /messages/nearby` - List Bluetooth-available users (Auth: Yes)
 
@@ -135,3 +137,7 @@ CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 ```
+
+
+  Session   Codebase vulnerability assessment
+  Continue  opencode -s ses_14539d862ffebrOioKpQ40vKV0

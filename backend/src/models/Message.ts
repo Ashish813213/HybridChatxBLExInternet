@@ -13,6 +13,9 @@ export interface IMessage extends Document {
   channelId?: Types.ObjectId;
   content: string;
   imageUrl?: string;
+  documentUrl?: string;
+  documentName?: string;
+  documentType?: string;
   timestamp: Date;
   mode: 'bluetooth' | 'internet';
   isEncrypted: boolean;
@@ -28,6 +31,9 @@ const messageSchema = new Schema<IMessage>(
     channelId: { type: Schema.Types.ObjectId, ref: 'Channel' },
     content: { type: String, default: '' },
     imageUrl: { type: String },
+    documentUrl: { type: String },
+    documentName: { type: String },
+    documentType: { type: String },
     timestamp: { type: Date, default: Date.now },
     mode: { type: String, enum: ['bluetooth', 'internet'], default: 'internet' },
     isEncrypted: { type: Boolean, default: true },

@@ -11,15 +11,26 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = new CloudinaryStorage({
+const imageStorage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: 'hybridchat',
+    folder: 'hybridchat/images',
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
     transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 'auto' }],
   },
 });
 
-export const upload = multer({ storage });
+const documentStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'hybridchat/documents',
+    resource_type: 'auto',
+    use_filename: true,
+    unique_filename: false,
+  },
+});
+
+export const uploadImage = multer({ storage: imageStorage });
+export const uploadDocument = multer({ storage: documentStorage });
 
 export default cloudinary;

@@ -72,7 +72,7 @@ export const searchUsers = async (req: Request, res: Response): Promise<void> =>
 
 export const sendMessage = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { receiverId, groupId, channelId, content, imageUrl, mode } = req.body;
+    const { receiverId, groupId, channelId, content, imageUrl, documentUrl, documentName, documentType, mode } = req.body;
     const senderId = req.userId;
 
     if (!senderId) {
@@ -85,9 +85,9 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Must have either content or image
-    if (!content && !imageUrl) {
-      res.status(400).json({ error: 'Message content or image required' });
+    // Must have either content, image, or document
+    if (!content && !imageUrl && !documentUrl) {
+      res.status(400).json({ error: 'Message content, image, or document required' });
       return;
     }
 
@@ -111,6 +111,9 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
       channelId: channelId ? new Types.ObjectId(channelId) : undefined,
       content: content || '',
       imageUrl,
+      documentUrl,
+      documentName,
+      documentType,
       timestamp: new Date(),
       mode: mode || 'internet',
       isEncrypted: true,
@@ -126,6 +129,9 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
           receiverId: receiverId,
           content: message.content,
           imageUrl: message.imageUrl,
+          documentUrl: message.documentUrl,
+          documentName: message.documentName,
+          documentType: message.documentType,
           timestamp: message.timestamp,
         });
       }
@@ -136,6 +142,9 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
           groupId: groupId,
           content: message.content,
           imageUrl: message.imageUrl,
+          documentUrl: message.documentUrl,
+          documentName: message.documentName,
+          documentType: message.documentType,
           timestamp: message.timestamp,
         });
       }
@@ -146,6 +155,9 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
           channelId: channelId,
           content: message.content,
           imageUrl: message.imageUrl,
+          documentUrl: message.documentUrl,
+          documentName: message.documentName,
+          documentType: message.documentType,
           reactions: message.reactions,
           timestamp: message.timestamp,
         });
